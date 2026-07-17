@@ -47,10 +47,14 @@ export default function ResultList({
 
             {it.status === "done" && it.url ? (
               <>
+                {/* preload="none": with 5-6 clips on screen, the default would
+                    have the browser open a decoder for every one of them at
+                    once. Nothing is decoded until the user actually hits play. */}
                 <video
                   src={it.url}
                   controls
                   playsInline
+                  preload="none"
                   className="mx-auto aspect-[9/16] w-full max-w-[280px] rounded-xl bg-black"
                 />
                 <div className="mt-4 flex gap-2">

@@ -14,6 +14,21 @@ const fs = require("node:fs");
 const net = require("node:net");
 const { fork } = require("node:child_process");
 
+// Render everything on the CPU and never talk to the graphics driver.
+//
+// Users reported the machine blue-screening ("Your device ran into a problem")
+// mid-use. A user-mode app cannot bugcheck Windows — only kernel code can, i.e.
+// a driver. The only driver this app leans on is the GPU: Chromium runs a
+// gpu-process, and the result screen hands it several 1080x1920 H.264 clips to
+// hardware-decode at once. Old Intel drivers (the dev machine still ships a
+// 2021 Iris Xe driver; church PCs are likely older) are a well-known crash
+// source for exactly that path.
+//
+// Nothing here needs GPU: it's a form, a list, and a few short clips. Software
+// decoding costs a little CPU and buys us not being at the mercy of whatever
+// driver a given church PC happens to have. Keep this off.
+app.disableHardwareAcceleration();
+
 const isDev = !app.isPackaged;
 let serverProc = null;
 let win = null;
