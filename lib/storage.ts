@@ -1,10 +1,12 @@
 // File storage abstraction. Local-disk adapter for now; swap for S3 etc. later.
-// Everything lives under ./.data (gitignored).
+// Dev: ./.data (gitignored). Packaged desktop app: Electron's userData dir,
+// because the install dir is read-only. See lib/paths.
 
 import fs from "node:fs";
 import path from "node:path";
+import { dataRoot } from "./paths";
 
-const DATA_DIR = path.join(process.cwd(), ".data");
+const DATA_DIR = dataRoot();
 const CACHE_DIR = path.join(DATA_DIR, "cache"); // source video downloads, keyed by videoId
 const OUT_DIR = path.join(DATA_DIR, "out"); // rendered shorts
 const TMP_DIR = path.join(DATA_DIR, "tmp"); // scratch (subs, clips)

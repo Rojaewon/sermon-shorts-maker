@@ -1,0 +1,58 @@
+appId: com.seolgyo.shorts-maker
+productName: 설교 쇼츠 메이커
+copyright: © 2026
+
+directories:
+  output: dist
+  buildResources: electron/resources
+
+# Stamps the icon onto the app .exe with rcedit — electron-builder's own step
+# for that is unavailable here. See electron/afterPack.mjs.
+afterPack: electron/afterPack.mjs
+
+# Only the Electron entry goes inside the app bundle. The Next server, fonts and
+# ffmpeg are shipped as extraResources instead — see below.
+#
+# node_modules is excluded deliberately: electron-builder bundles production
+# dependencies by default, which would duplicate the entire tree (ffmpeg-static
+# alone is 79MB) that resources/app already carries. main.js only uses Electron
+# and Node built-ins, so it needs none of it.
+files:
+  - electron/main.js
+  - package.json
+  - "!node_modules/**"
+
+# These land in resources/ next to the exe, outside app.asar. That matters:
+# ffmpeg cannot be executed from inside an asar archive, and it reads the font
+# files as a separate process, so those cannot be archived either.
+extraResources:
+  - from: build/app
+    to: app
+  - from: build/fonts
+    to: fonts
+  - from: build/ffmpeg.exe
+    to: ffmpeg.exe
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: 설교쇼츠메이커-설치-${version}.${ext}
+  # We have no code-signing certificate. Leaving this on makes electron-builder
+  # fetch its winCodeSign toolchain, which unpacks macOS symlinks and fails on
+  # Windows without admin rights. Nothing here needs signing or exe metadata
+  # editing, so skip it.
+  signAndEditExecutable: false
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 설교 쇼츠 메이커
+  # Per-user install: no admin prompt, and the app can update itself later.
+  perMachine: false
+  # Rendered shorts and the video cache live in userData. Uninstalling must not
+  # silently delete the user's work.
+  deleteAppDataOnUninstall: false

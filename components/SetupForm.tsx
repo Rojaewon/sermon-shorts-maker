@@ -54,13 +54,13 @@ export default function SetupForm({
     <div className="mx-auto w-full max-w-2xl">
       <div className="mb-10 text-center">
         <h1 className="text-4xl font-extrabold leading-tight sm:text-5xl">
-          설교의 은혜를
+          설교 전체 영상을
           <br />
-          <span className="text-accent">쇼츠 한 편</span>에
+          <span className="text-accent">쇼츠 영상</span>으로
         </h1>
         <p className="mt-4 text-muted">
-          설교 유튜브 링크를 넣으면 AI가 하이라이트를 찾아
-          <br className="hidden sm:block" /> 자막이 들어간 쇼츠를 만들어 드립니다.
+          설교(예배) 유튜브 링크를 넣으면 AI가 하이라이트를 찾아
+          <br className="hidden sm:block" /> 쇼츠를 만들어 드립니다 (자막 on/off 가능).
         </p>
       </div>
 

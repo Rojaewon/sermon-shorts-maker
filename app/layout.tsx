@@ -3,7 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "설교 쇼츠 메이커",
-  description: "설교 유튜브 링크를 넣으면 AI가 하이라이트를 찾아 자막이 들어간 쇼츠를 만들어 드립니다.",
+  description:
+    "설교(예배) 유튜브 링크를 넣으면 AI가 하이라이트를 찾아 쇼츠를 만들어 드립니다 (자막 on/off 가능).",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
