@@ -38,7 +38,9 @@ win:
   target:
     - target: nsis
       arch: [x64]
-  artifactName: 설교쇼츠메이커-설치-${version}.${ext}
+  # ASCII on purpose: GitHub Releases strips non-ASCII from asset filenames,
+  # turning a Korean name into something like "-.-0.1.0.exe" on download.
+  artifactName: SermonShortsMaker-Setup-${version}.${ext}
   # We have no code-signing certificate. Leaving this on makes electron-builder
   # fetch its winCodeSign toolchain, which unpacks macOS symlinks and fails on
   # Windows without admin rights. Nothing here needs signing or exe metadata
