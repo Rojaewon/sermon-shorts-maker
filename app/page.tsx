@@ -156,6 +156,8 @@ export default function Home() {
           onRerender={handleRerender}
           onBack={() => setStep("select")}
           onHome={handleHome}
+          churchName={setup?.churchName}
+          sourceUrl={setup?.url}
         />
       )}
     </main>

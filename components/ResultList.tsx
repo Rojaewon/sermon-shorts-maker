@@ -5,6 +5,8 @@ import type { Cue, Highlight, SubtitleOptions, TitleStyle } from "@/lib/types";
 import { DEFAULT_TITLE_STYLE } from "@/lib/types";
 import { mmss } from "@/lib/format";
 import { SubtitleControls, TitleControls } from "./StyleControls";
+import UploadHelper from "./UploadHelper";
+import { buildUploadMeta } from "@/lib/youtube-meta";
 
 export interface RenderedItem {
   highlight: Highlight;
@@ -21,14 +23,19 @@ export default function ResultList({
   onRerender,
   onBack,
   onHome,
+  churchName,
+  sourceUrl,
 }: {
   items: RenderedItem[];
   // Anything the user changed here means re-rendering that one clip.
   onRerender: (highlightId: string, patch: Partial<Highlight>) => void;
   onBack: () => void;
   onHome: () => void;
+  churchName?: string;
+  sourceUrl?: string;
 }) {
   const [editing, setEditing] = useState<RenderedItem | null>(null);
+  const [uploading, setUploading] = useState<RenderedItem | null>(null);
   const rendering = items.some((it) => it.status === "pending" || it.status === "rendering");
 
   return (
@@ -81,12 +88,18 @@ export default function ResultList({
                     ✎ 수정
                   </button>
                   <a
-                    href={`${it.url}&download=1`}
-                    className="flex-1 rounded-xl bg-accent py-2.5 text-center text-sm font-extrabold text-black hover:bg-accent2"
+                    href={`${it.url}&download=1&as=${encodeURIComponent(buildUploadMeta(it.highlight).fileName)}`}
+                    className="flex-1 rounded-xl border border-line bg-panel2 py-2.5 text-center text-sm font-bold hover:border-accent"
                   >
                     ⬇ 다운로드
                   </a>
                 </div>
+                <button
+                  onClick={() => setUploading(it)}
+                  className="mt-2 w-full rounded-xl bg-accent py-2.5 text-sm font-extrabold text-black hover:bg-accent2"
+                >
+                  ⬆ 유튜브에 올리기
+                </button>
               </>
             ) : it.status === "error" ? (
               <div className="flex aspect-[9/16] max-w-[280px] mx-auto items-center justify-center rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-center text-sm text-red-400">
@@ -107,6 +120,17 @@ export default function ResultList({
           </div>
         ))}
       </div>
+
+      {uploading?.name && (
+        <UploadHelper
+          highlight={uploading.highlight}
+          fileName={uploading.name}
+          downloadUrl={uploading.url ?? ""}
+          churchName={churchName}
+          sourceUrl={sourceUrl}
+          onClose={() => setUploading(null)}
+        />
+      )}
 
       {editing && (
         <EditModal

@@ -8,7 +8,7 @@
 // read-only dir inside an asar archive, so every writable/external path must be
 // redirected. See lib/paths.ts for the receiving end.
 
-const { app, BrowserWindow, shell, dialog, ipcMain, safeStorage } = require("electron");
+const { app, BrowserWindow, shell, dialog, ipcMain, safeStorage, clipboard } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const net = require("node:net");
@@ -83,6 +83,50 @@ ipcMain.handle("settings:set", (_e, key, value) => {
   }
   writeSettings(all);
   return true;
+});
+
+
+// ---- rendered clips ------------------------------------------------------
+// The renderer passes a file NAME and nothing else. Resolving it here means a
+// compromised or buggy page cannot point these at arbitrary files: the name is
+// stripped to [A-Za-z0-9_.-] (same rule as app/api/files) and joined onto the
+// one directory renders are written to.
+
+function outFile(name) {
+  const safe = String(name || "").replace(/[^\w.\-]/g, "");
+  if (!safe || safe.includes("..")) return null;
+  const file = path.join(app.getPath("userData"), "data", "out", safe);
+  return fs.existsSync(file) ? file : null;
+}
+
+ipcMain.handle("clip:saveAs", async (_e, name, suggestedFileName) => {
+  const src = outFile(name);
+  if (!src) return { ok: false, reason: "notfound" };
+  const { canceled, filePath } = await dialog.showSaveDialog(win, {
+    title: "쇼츠 영상 저장",
+    defaultPath: path.join(app.getPath("downloads"), suggestedFileName || path.basename(src)),
+    filters: [{ name: "동영상", extensions: ["mp4"] }],
+  });
+  if (canceled || !filePath) return { ok: false, reason: "canceled" };
+  try {
+    fs.copyFileSync(src, filePath);
+    shell.showItemInFolder(filePath);
+    return { ok: true, path: filePath };
+  } catch (e) {
+    return { ok: false, reason: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle("clip:reveal", (_e, name) => {
+  const file = outFile(name);
+  if (!file) return { ok: false, reason: "notfound" };
+  shell.showItemInFolder(file);
+  return { ok: true };
+});
+
+ipcMain.handle("clip:copyText", (_e, text) => {
+  clipboard.writeText(String(text ?? ""));
+  return { ok: true };
 });
 
 function freePort() {
