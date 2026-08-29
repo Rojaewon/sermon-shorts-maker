@@ -13,6 +13,7 @@ import {
   titlePlacement,
   TEMPLATES,
 } from "./layout";
+import { splitCues } from "./subtitles";
 import type { Cue, SubtitleOptions, TemplateId, TitleStyle } from "./types";
 
 // hex "#RRGGBB" -> ASS "&HAABBGGRR" (AA=00 opaque)
@@ -92,9 +93,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
     `Dialogue: 0,0:00:00.00,${end},TitleAccent,,0,0,0,,{\\an5\\pos(${TITLE.centerX},${title.line2CenterY})${l2.tag}}${esc(l2.text)}`,
   );
 
-  // Dialogue subtitles
+  // Dialogue subtitles.
+  //
+  // Split here rather than upstream: the number of lines a cue turns into
+  // depends on the font size chosen for THIS render, and the same highlight can
+  // be re-rendered at a different size from the result screen.
   if (p.subtitles.enabled) {
-    for (const c of p.cues) {
+    for (const c of splitCues(p.cues, p.subtitles.size)) {
       const s = Math.max(0, c.start);
       const e = Math.min(p.clipDurationSec, c.end);
       if (e <= s) continue;

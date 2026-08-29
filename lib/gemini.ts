@@ -289,7 +289,14 @@ export async function transcribeAudio(
         parts: [
           { inlineData: { mimeType, data: audioBase64 } },
           {
-            text: "이 오디오는 한국어 설교입니다. 전체를 전사하되, 문장 단위로 나눠 각 문장의 시작/끝 시각(초)과 텍스트를 JSON으로 주세요.",
+            // "문장 단위" alone produced whole paragraphs in a single cue, which
+            // then wrapped into five lines of subtitle. Ask for caption-sized
+            // pieces explicitly.
+            text:
+              "이 오디오는 한국어 설교입니다. 전체를 전사해 주세요.\n" +
+              "자막으로 쓸 것이므로 짧게 끊어 주세요. 한 항목은 20자 안팎, 최대 40자를 넘기지 마세요.\n" +
+              "문장이 길면 쉼표나 '~고/~며/~면/~는데' 같은 자연스러운 지점에서 나누고, 단어 중간에서는 절대 끊지 마세요.\n" +
+              "각 항목의 시작/끝 시각(초)과 텍스트를 JSON으로 주세요.",
           },
         ],
       },
