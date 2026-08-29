@@ -37,31 +37,68 @@ export async function runAnalyze(
 
   if (!cues || cues.length < 5) {
     hasCaptions = false;
-    progress(0.3, "자막이 없어 음성을 인식하는 중... (조금 더 걸려요)");
+    // Two slow stages back to back, so name them separately — a bar sitting at
+    // the same label for several minutes is what a hang looks like.
+    progress(0.3, "자막이 없는 영상이라 음성을 받아오는 중...");
     const audioPath = await fetchAudio(url, videoId);
     const chunks = await prepareSpeechChunks(audioPath, videoId);
+    // Say how many parts there are up front. This stage can run for minutes on
+    // a full service, and a counter that starts at 0/14 reads as progress;
+    // a spinner with no numbers reads as a hang.
+    progress(0.3, `음성을 인식하는 중... (0/${chunks.length})`);
 
-    // Transcribe chunk by chunk and shift each result back onto the real
-    // timeline. One request for the whole recording silently truncates.
+    // Transcribe each chunk and shift its timings back onto the real timeline.
+    // One request for the whole recording silently truncates.
+    //
+    // A few run at once: a 69-minute service is 14 chunks, and one at a time
+    // would leave the user staring at a spinner for twenty minutes. Three keeps
+    // well clear of the per-minute request limits.
+    const CONCURRENCY = 3;
     const all: Cue[] = [];
+    let done = 0;
+    let failed = 0;
     try {
-      for (let i = 0; i < chunks.length; i++) {
-        progress(
-          0.3 + (i / chunks.length) * 0.2,
-          `음성을 인식하는 중... (${i + 1}/${chunks.length})`,
-        );
-        const buf = fs.readFileSync(chunks[i].file);
-        const part = await transcribeAudio(apiKey, buf.toString("base64"), "audio/mpeg");
-        for (const c of part) {
-          all.push({
-            start: c.start + chunks[i].offsetSec,
-            end: c.end + chunks[i].offsetSec,
-            text: c.text,
-          });
+      let next = 0;
+      const worker = async () => {
+        for (;;) {
+          const i = next++;
+          if (i >= chunks.length) return;
+          try {
+            const buf = fs.readFileSync(chunks[i].file);
+            const part = await transcribeAudio(apiKey, buf.toString("base64"), "audio/mpeg");
+            for (const c of part) {
+              all.push({
+                start: c.start + chunks[i].offsetSec,
+                end: c.end + chunks[i].offsetSec,
+                text: c.text,
+              });
+            }
+          } catch (e) {
+            // One bad chunk leaves a gap in the transcript, which costs at most
+            // a few candidate highlights. Throwing away the other thirteen —
+            // and the ten minutes spent on them — costs the user everything.
+            failed++;
+            console.warn(`[analyze] ${i + 1}번째 조각 인식 실패:`, (e as Error).message);
+          }
+          done++;
+          progress(
+            0.3 + (done / chunks.length) * 0.2,
+            `음성을 인식하는 중... (${done}/${chunks.length})`,
+          );
         }
-      }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(CONCURRENCY, chunks.length) }, worker),
+      );
     } finally {
       cleanupChunks(chunks);
+    }
+    // Losing a slice is survivable; losing most of the service is not — the AI
+    // would then pick highlights from a transcript full of holes.
+    if (failed > chunks.length / 3) {
+      throw new Error(
+        "음성 인식이 여러 번 실패했습니다.\n인터넷 연결을 확인하시고 잠시 후 다시 시도해 주세요.",
+      );
     }
     cues = all.sort((a, b) => a.start - b.start);
   }

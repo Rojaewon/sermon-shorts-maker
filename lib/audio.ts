@@ -19,9 +19,13 @@ import { execFile } from "node:child_process";
 import { FFMPEG } from "./binaries";
 import { tmpPath } from "./storage";
 
-// 10 minutes: comfortably within one response, and short enough that any
-// timestamp drift inside a chunk stays small.
-const CHUNK_SEC = 600;
+// 5 minutes. Ten was too long: transcribing that much Korean speech with
+// timestamps takes the model several minutes, and Node's fetch gives up at 5
+// (undici's headersTimeout) with an opaque "fetch failed". A non-streaming
+// response only sends headers once generation finishes, so that ceiling applies
+// to the whole call and cannot be raised from the SDK — the request itself has
+// to finish well inside it. Half the audio is roughly half the output tokens.
+export const CHUNK_SEC = 300;
 
 export interface AudioChunk {
   file: string;

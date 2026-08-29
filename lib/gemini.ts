@@ -22,7 +22,18 @@ const MODEL_UNAVAILABLE_RE =
 
 // Transient errors (server busy / rate limit) — retry with backoff, then try
 // the next model (a different model often has spare capacity).
-const TRANSIENT_RE = /503|UNAVAILABLE|overloaded|high demand|try again|429|RESOURCE_EXHAUSTED/i;
+//
+// "fetch failed" belongs here: it is what Node throws for any transport-level
+// failure, including the request being abandoned on timeout. It used to fall
+// through to the rethrow below, so a single slow call killed a whole multi-part
+// transcription with a message that meant nothing to the user.
+const TRANSIENT_RE =
+  /503|UNAVAILABLE|overloaded|high demand|try again|429|RESOURCE_EXHAUSTED|fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket hang up|network|aborted|timeout/i;
+
+// Never let one call sit until Node's own 5-minute ceiling: at that point it
+// dies as a bare "fetch failed" and we've burned five minutes learning nothing.
+// Failing earlier leaves time to actually retry.
+const REQUEST_TIMEOUT_MS = 150_000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -30,15 +41,21 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // transient errors, skip to the next model when unavailable, rethrow otherwise.
 async function withModelFallback<T>(fn: (model: string) => Promise<T>): Promise<T> {
   let lastErr: unknown;
+  // Cap total tries across all models. Per-model retries alone would allow
+  // 3 models x 3 attempts, and with a 150s request timeout that is twenty
+  // minutes of a frozen progress bar before the user is told anything.
+  let budget = 4;
   for (const model of MODEL_CANDIDATES) {
     for (let attempt = 1; attempt <= 3; attempt++) {
+      if (budget <= 0) break;
+      budget--;
       try {
         return await fn(model);
       } catch (e) {
         lastErr = e;
         const msg = String((e as Error)?.message || e);
         if (TRANSIENT_RE.test(msg)) {
-          if (attempt < 3) await sleep(1500 * attempt);
+          if (attempt < 3 && budget > 0) await sleep(1500 * attempt);
           continue;
         }
         if (MODEL_UNAVAILABLE_RE.test(msg)) break; // next model
@@ -47,6 +64,11 @@ async function withModelFallback<T>(fn: (model: string) => Promise<T>): Promise<
     }
   }
   const msg = String((lastErr as Error)?.message || lastErr);
+  if (/fetch failed|ECONNRESET|ENOTFOUND|EAI_AGAIN|network|socket hang up/i.test(msg)) {
+    throw new Error(
+      "구글 AI 서버와 연결하지 못했습니다.\n인터넷 연결을 확인하시고 잠시 후 다시 시도해 주세요.",
+    );
+  }
   if (TRANSIENT_RE.test(msg)) {
     throw new Error("AI 모델이 지금 혼잡합니다(구글 서버 일시 과부하). 1~2분 뒤 다시 시도해 주세요.");
   }
@@ -261,21 +283,39 @@ export async function transcribeAudio(
     required: ["cues"],
   };
   return withModelFallback(async (model) => {
-    const resp = await ai.models.generateContent({
-      model,
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { inlineData: { mimeType, data: audioBase64 } },
-            {
-              text: "이 오디오는 한국어 설교입니다. 전체를 전사하되, 문장 단위로 나눠 각 문장의 시작/끝 시각(초)과 텍스트를 JSON으로 주세요.",
-            },
-          ],
-        },
-      ],
-      config: { responseMimeType: "application/json", responseSchema: schema as never },
-    });
+    const contents = [
+      {
+        role: "user",
+        parts: [
+          { inlineData: { mimeType, data: audioBase64 } },
+          {
+            text: "이 오디오는 한국어 설교입니다. 전체를 전사하되, 문장 단위로 나눠 각 문장의 시작/끝 시각(초)과 텍스트를 JSON으로 주세요.",
+          },
+        ],
+      },
+    ];
+    const config = {
+      responseMimeType: "application/json",
+      responseSchema: schema as never,
+      httpOptions: { timeout: REQUEST_TIMEOUT_MS },
+    };
+
+    // Transcription is dictation, not reasoning, so the newer models' thinking
+    // pass buys nothing and costs latency — the very thing that pushed a long
+    // chunk past the request deadline. Not every model accepts a zero budget,
+    // so a rejection just means asking again without it rather than failing.
+    let resp;
+    try {
+      resp = await ai.models.generateContent({
+        model,
+        contents,
+        config: { ...config, thinkingConfig: { thinkingBudget: 0 } },
+      });
+    } catch (e) {
+      const msg = String((e as Error)?.message || e);
+      if (!/thinking|thought|INVALID_ARGUMENT|400/i.test(msg)) throw e;
+      resp = await ai.models.generateContent({ model, contents, config });
+    }
     const text = resp.text;
     if (!text) throw new Error("empty");
     return (JSON.parse(text) as { cues: Cue[] }).cues;
