@@ -39,6 +39,7 @@ export async function renderShort(
     highlight: Highlight;
     template: TemplateId;
     subtitles: SubtitleOptions;
+    churchName?: string;
   },
   onProgress?: (p: number, msg: string) => void,
 ): Promise<{ url: string; name: string }> {

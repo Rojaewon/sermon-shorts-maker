@@ -155,7 +155,7 @@ export default function SetupForm({
         </Field>
 
         {/* church name */}
-        <Field n={5} label="교회명 (선택)">
+        <Field n={5} label="교회명 (선택)" hint="영상 맨 아래에 작게 표시돼요">
           <input
             value={churchName}
             onChange={(e) => setChurchName(e.target.value)}

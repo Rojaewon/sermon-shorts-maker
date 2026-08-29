@@ -18,7 +18,7 @@ function styleTag(o: unknown): string {
 
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as RenderRequest & { url: string };
-  const { url, videoId, highlight, template } = body;
+  const { url, videoId, highlight, template, churchName } = body;
   if (!url || !videoId || !highlight) {
     return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });
   }
@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
       fit,
       subtitles,
       titleStyle: highlight.titleStyle,
+      churchName,
       t1: highlight.titleLine1,
       t2: highlight.titleLine2,
       cues: highlight.cues,
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest) {
       titleLine1: highlight.titleLine1,
       titleLine2: highlight.titleLine2,
       titleStyle: highlight.titleStyle,
+      churchName,
       cues: highlight.cues as Cue[],
       subtitles,
       fit,

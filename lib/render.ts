@@ -28,6 +28,7 @@ export interface RenderParams {
   titleLine1: string;
   titleLine2: string;
   titleStyle?: TitleStyle;
+  churchName?: string;
   cues: Cue[]; // absolute timing; will be shifted to clip-relative
   subtitles: SubtitleOptions;
   fit?: VideoFit; // default "crop"
@@ -54,6 +55,7 @@ export async function renderHighlight(params: RenderParams): Promise<string> {
     titleLine1: params.titleLine1,
     titleLine2: params.titleLine2,
     titleStyle: params.titleStyle,
+    churchName: params.churchName,
     clipDurationSec: dur,
     cues: relCues,
     subtitles: params.subtitles,

@@ -12,6 +12,7 @@ import {
   subtitlePlacement,
   titlePlacement,
   TEMPLATES,
+  CHURCH,
 } from "./layout";
 import { splitCues } from "./subtitles";
 import type { Cue, SubtitleOptions, TemplateId, TitleStyle } from "./types";
@@ -46,12 +47,21 @@ export interface AssParams {
   clipDurationSec: number; // title shows for whole clip
   cues: Cue[]; // already shifted to clip-relative timing
   subtitles: SubtitleOptions;
+  churchName?: string;
 }
 
 export function buildAss(p: AssParams): string {
   const tpl = TEMPLATES[p.template];
   const subFont = SUB_FONT_SIZE[p.subtitles.size];
   const place = subtitlePlacement(p.subtitles.position);
+
+  const church = p.churchName?.trim();
+  // A bottom-anchored subtitle would sit on top of the church line, so lift it
+  // clear when both are present. Only the lowest preset is close enough to
+  // collide; the others already sit well above.
+  if (church && p.subtitles.position === "screen-bottom") {
+    place.marginV += CHURCH.reservedHeight;
+  }
 
   const title = titlePlacement(p.titleStyle?.size ?? "medium");
   // Fall back to the template's colors when the user hasn't picked one.
@@ -64,6 +74,8 @@ export function buildAss(p: AssParams): string {
     `Style: TitleAccent,${TITLE_FONT_NAME},${title.fontSize},${assColor(c2)},${assColor(c2)},${assColor(tpl.bg)},&H64000000,1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1`,
     // Subtitle: outlined for readability, bottom-anchored via alignment/marginV.
     `Style: Sub,${SUB_FONT_NAME},${subFont},${assColor(tpl.subtitle)},${assColor(tpl.subtitle)},${assColor(tpl.subtitleOutline)},&H96000000,1,0,0,0,100,100,0,0,1,4,1,${place.alignment},80,80,${place.marginV},1`,
+    // Church credit: quiet, semi-transparent, bottom-centred.
+    `Style: Church,${SUB_FONT_NAME},${CHURCH.fontSize},${assColor(tpl.subtitle, CHURCH.opacityHex)},${assColor(tpl.subtitle, CHURCH.opacityHex)},${assColor(tpl.subtitleOutline, CHURCH.opacityHex)},&H96000000,0,0,0,0,100,100,0,0,1,2,0,2,60,60,${CHURCH.marginV},1`,
   ].join("\n");
 
   const header = `[Script Info]
@@ -105,6 +117,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
       if (e <= s) continue;
       events.push(`Dialogue: 0,${sec2ass(s)},${sec2ass(e)},Sub,,0,0,0,,${esc(c.text)}`);
     }
+  }
+
+  // Church name — shown for the whole clip, like the title.
+  if (church) {
+    events.push(`Dialogue: 0,0:00:00.00,${end},Church,,0,0,0,,${esc(church)}`);
   }
 
   return `${header}\n${events.join("\n")}\n`;

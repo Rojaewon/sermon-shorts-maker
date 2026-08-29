@@ -128,3 +128,15 @@ export function subtitlePlacement(pos: SubtitlePosition): {
       return { alignment: 2, marginV: 70 };
   }
 }
+
+// Church name — a small credit line at the very bottom of the subtitle band.
+// Deliberately quiet: it identifies the source without competing with the
+// message. The samples this layout was measured from had no badge, so these
+// values are chosen rather than measured, and verified by rendering.
+export const CHURCH = {
+  fontSize: 38,
+  marginV: 46, // from the bottom edge
+  opacityHex: "60", // ASS alpha: 00 opaque, FF invisible
+  // Height the label occupies, used to lift bottom-anchored subtitles clear.
+  reservedHeight: 96,
+};

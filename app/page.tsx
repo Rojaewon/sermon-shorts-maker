@@ -68,6 +68,7 @@ export default function Home() {
           videoId: analysis!.meta.videoId,
           highlight: h,
           template,
+          churchName: v.churchName,
           // The clip's own look wins; this is only a fallback.
           subtitles: h.subtitles ?? subtitles,
         },
